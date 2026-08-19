@@ -1,6 +1,6 @@
 // Bei jeder inhaltlichen Änderung an den Dateien diese Versionsnummer erhöhen,
 // damit Geräte, die die App schon installiert haben, die neue Version laden.
-const CACHE_NAME = "notenheft-cache-v3";
+const CACHE_NAME = "notenheft-cache-v4";
 
 const ASSETS = [
   "./",

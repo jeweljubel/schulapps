@@ -1,6 +1,6 @@
 // Bei jeder inhaltlichen Änderung an den Dateien diese Versionsnummer erhöhen,
 // damit Geräte, die die App schon installiert haben, die neue Version laden.
-const CACHE_NAME = "wochenplaner-cache-v2";
+const CACHE_NAME = "wochenplaner-cache-v3";
 
 const ASSETS = [
   "./",

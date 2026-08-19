@@ -15,9 +15,15 @@ function getFachColor(fach) {
   return hit ? hit.color : "transparent";
 }
 function escapeHtml(str) { return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
-function todayISO() { return new Date().toISOString().slice(0, 10); }
-function addDays(dateStr, n) { const d = new Date(dateStr + "T00:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
-function mondayOfWeek(dateStr) { const d = new Date(dateStr + "T00:00:00"); const day = d.getDay(); const diff = day === 0 ? -6 : 1 - day; d.setDate(d.getDate() + diff); return d.toISOString().slice(0, 10); }
+function dateToLocalISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function todayISO() { return dateToLocalISO(new Date()); }
+function addDays(dateStr, n) { const d = new Date(dateStr + "T00:00:00"); d.setDate(d.getDate() + n); return dateToLocalISO(d); }
+function mondayOfWeek(dateStr) { const d = new Date(dateStr + "T00:00:00"); const day = d.getDay(); const diff = day === 0 ? -6 : 1 - day; d.setDate(d.getDate() + diff); return dateToLocalISO(d); }
 function formatDateShort(iso) { const [y, m, d] = iso.split("-"); return `${d}.${m}.`; }
 function formatDateFull(iso) { const [y, m, d] = iso.split("-"); return `${d}.${m}.${y}`; }
 function getISOWeek(dateStr) {
