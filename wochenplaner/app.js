@@ -7,6 +7,7 @@ const FACH_FARBEN = [
   { key: "förder", color: "#ffffff" },
   { key: "verfügung", color: "#e0e0e0" },
 ];
+const FACH_OPTIONEN = ["Deutsch", "Mathe", "Sachunterricht", "Englisch", "Förderung", "Verfügung", "Sport", "Kunst", "Musik", "Religion/Ethik"];
 function getFachColor(fach) {
   const t = (fach || "").trim().toLowerCase();
   if (!t) return "transparent";
@@ -112,14 +113,23 @@ function renderDayTabs(monday) {
   html += "</div>";
   return html;
 }
+function renderFachCell(row, dayISO, idx) {
+  const isCustom = row.customFach || (row.fach && !FACH_OPTIONEN.includes(row.fach));
+  const options = ['<option value="">–</option>']
+    .concat(FACH_OPTIONEN.map((f) => `<option value="${f}" ${row.fach === f ? "selected" : ""}>${f}</option>`))
+    .concat([`<option value="__custom__" ${isCustom ? "selected" : ""}>Sonstiges …</option>`])
+    .join("");
+  let html = `<select data-change="set-fach-select" data-day="${dayISO}" data-idx="${idx}">${options}</select>`;
+  if (isCustom) html += `<input type="text" value="${escapeHtml(row.fach)}" data-field="fach" data-day="${dayISO}" data-idx="${idx}" placeholder="eigenes Fach" style="margin-top:4px;font-size:0.8rem;" />`;
+  return html;
+}
 function renderStundenTable(dayISO, day) {
-  let html = '<table class="stunden-table"><thead><tr><th style="width:10%;">Klasse</th><th style="width:14%;">Fach</th><th>Inhalt</th><th style="width:18%;">Material</th><th style="width:16%;">Sonstiges</th><th style="width:24px;"></th></tr></thead><tbody>';
+  let html = '<table class="stunden-table"><thead><tr><th style="width:10%;">Klasse</th><th style="width:16%;">Fach</th><th>Inhalt</th><th style="width:18%;">Material</th><th style="width:16%;">Sonstiges</th><th style="width:24px;"></th></tr></thead><tbody>';
   day.stunden.forEach((row, idx) => {
     const bg = getFachColor(row.fach);
     html += `<tr style="background:${bg};">`;
-    ["klasse", "fach"].forEach((field) => {
-      html += `<td><input type="text" value="${escapeHtml(row[field])}" data-field="${field}" data-day="${dayISO}" data-idx="${idx}" /></td>`;
-    });
+    html += `<td><input type="text" value="${escapeHtml(row.klasse)}" data-field="klasse" data-day="${dayISO}" data-idx="${idx}" /></td>`;
+    html += `<td>${renderFachCell(row, dayISO, idx)}</td>`;
     ["inhalt", "material", "sonstiges"].forEach((field) => {
       html += `<td><textarea class="autosize" rows="1" data-field="${field}" data-day="${dayISO}" data-idx="${idx}">${escapeHtml(row[field])}</textarea></td>`;
     });
@@ -224,7 +234,10 @@ function renderMain() {
   ensureWeek(monday);
   if (!ui.selectedDay || mondayOfWeek(ui.selectedDay) !== monday) ui.selectedDay = monday;
   let html = renderWeekNav();
-  html += `<button type="button" class="btn btn-outline btn-block" style="margin-bottom:12px;" data-action="print-week">📄 Woche als PDF exportieren</button>`;
+  html += `<div class="flex-row" style="gap:8px;margin-bottom:12px;">
+    <button type="button" class="btn btn-outline" style="flex:1;" data-action="print-week">📄 Als PDF</button>
+    <button type="button" class="btn btn-outline" style="flex:1;" data-action="copy-to-next-week">📋 In nächste Woche übernehmen</button>
+  </div>`;
   html += renderFachLegende();
   html += renderDayTabs(monday);
   html += renderDayPanel(monday);
@@ -305,14 +318,38 @@ function attachEvents() {
       }
       case "delete-ferien": state.ferien = state.ferien.filter((f) => f.id !== el.dataset.id); saveState(); render(); break;
       case "print-week": printWeek(); break;
+      case "copy-to-next-week": App_copyToNextWeek(); break;
       case "export-wochenplan": exportWochenplanData(); break;
       case "import-wochenplan": document.getElementById("import-wochenplan-input").click(); break;
     }
   });
   app.addEventListener("change", (e) => {
-    const el = e.target.closest("[data-change='import-wochenplan-file']");
-    if (el) importWochenplanFile(el);
+    const importEl = e.target.closest("[data-change='import-wochenplan-file']");
+    if (importEl) { importWochenplanFile(importEl); return; }
+    const fachEl = e.target.closest("[data-change='set-fach-select']");
+    if (fachEl) {
+      const row = state.weeks[ui.currentMonday].days[fachEl.dataset.day].stunden[Number(fachEl.dataset.idx)];
+      if (fachEl.value === "__custom__") { row.customFach = true; row.fach = ""; }
+      else { row.customFach = false; row.fach = fachEl.value; }
+      saveState();
+      render();
+    }
   });
+}
+function App_copyToNextWeek() {
+  const nextMonday = addDays(ui.currentMonday, 7);
+  const nextWeek = ensureWeek(nextMonday);
+  const hasContent = Object.values(nextWeek.days).some((d) => d.stunden.some((s) => s.klasse || s.fach || s.inhalt || s.material || s.sonstiges));
+  if (hasContent && !confirm("Die nächste Woche enthält bereits Einträge in den Stunden. Trotzdem überschreiben?")) return;
+  const currentWeek = ensureWeek(ui.currentMonday);
+  for (let i = 0; i < 5; i++) {
+    const fromDay = addDays(ui.currentMonday, i);
+    const toDay = addDays(nextMonday, i);
+    nextWeek.days[toDay].stunden = currentWeek.days[fromDay].stunden.map((s) => ({ ...s }));
+  }
+  saveState();
+  alert("Der Stundenplan (Klasse/Fach/Inhalt/Material/Sonstiges) wurde in die nächste Woche übernommen. Tagestermine und Notizen bleiben davon unberührt.");
+  render();
 }
 function exportWochenplanData() {
   const payload = JSON.stringify({ exportedAt: new Date().toISOString(), ...state }, null, 2);
